@@ -3,4 +3,4 @@ Software for Arduino based control system for continous rotation servos. Each ar
 
 CRS-control is designed to be a subsystem used in a CNC-machine. The CNC-machine is determined to be build of a central unit that coordinates movement of all motors by communicating to each subsystem(CRS-control) via I2C(twi-Two wire communication).
 
-##TWI-Protocol
+## TWI-Protocol
