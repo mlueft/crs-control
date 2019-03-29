@@ -1,5 +1,4 @@
 #include <Wire.h>
-
 #include "Configuration.h"
 #include "AxActuator.cpp"
 
@@ -81,7 +80,6 @@ unsigned long  time = 0;
   */
 void loop() {
 
-
     /**/
     if( !actuator.isBusy() && actuator.position < 500)
     {
@@ -110,23 +108,4 @@ void loop() {
     }
 	/**/
 }
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
  
