@@ -1,4 +1,7 @@
 #include "TWI.cpp"
+#include "WireCommands.cpp"
+#include "Procedures.cpp"
+#include "ProcedureFunctions.cpp"
 
 class AxActuator: public TWI
 {
@@ -9,7 +12,8 @@ class AxActuator: public TWI
     int PIN_PWN_SPEED;
     int PIN_FEEDBACK_0;
     int PIN_FEEDBACK_1;
-    
+	int PIN_HOME_SWITCH;
+
     public:
 
 	/**
@@ -56,7 +60,8 @@ class AxActuator: public TWI
         int pin1,
         int pinPWN,
         int fbPin0,
-        int fbPin1
+        int fbPin1,
+		int pinHome
     )
     {
         PIN_ENABLE_0 = pin0;
@@ -64,7 +69,7 @@ class AxActuator: public TWI
         PIN_PWN_SPEED = pinPWN;
         PIN_FEEDBACK_0 = fbPin0;
         PIN_FEEDBACK_1 = fbPin1;
-        
+		PIN_HOME_SWITCH = pinHome;
     }
 
 	/**
@@ -112,6 +117,8 @@ class AxActuator: public TWI
 
 	int speed = 0;
 	long lastposition = 0;
+	int procedure = Procedures::NONE;
+	int procedureFunction = ProcedureFunctions::NONE;
 
 	/**
 	*
@@ -119,15 +126,66 @@ class AxActuator: public TWI
     void main()
     {
     
+		if (procedure == Procedures::HOMING)
+		{
+
+			if (procedureFunction == ProcedureFunctions::RELEASE)
+			{
+				if (digitalRead(PIN_HOME_SWITCH) == HIGH) {
+					if( !this->isBusy() )
+					{
+						this->moveTo(this->position - int(this->tolerance * 2));
+					}
+				}
+				else
+				{
+					procedureFunction = ProcedureFunctions::DETENTION;
+				}
+			}
+			else if (procedureFunction == ProcedureFunctions::DETENTION)
+			{
+				if (digitalRead(PIN_HOME_SWITCH) == LOW) {
+					if (!this->isBusy())
+					{
+						this->moveTo(this->position + int(this->tolerance * 2));
+					}
+				}
+				else
+				{
+					procedure = Procedures::NONE;
+					procedureFunction = ProcedureFunctions::NONE;
+
+					this->position = 0;
+					this->targetPosition = 0;
+					this->speed = speedBackup;
+				}
+			}
+		}
+
+
+
+
         if(targetPosition < position)
         {
+#if INVERSE_DIRECTION == 0
             digitalWrite( PIN_ENABLE_0, LOW);
             digitalWrite( PIN_ENABLE_1, HIGH);
+#endif
+#if INVERSE_DIRECTION == 1
+			digitalWrite(PIN_ENABLE_0, HIGH);
+			digitalWrite(PIN_ENABLE_1, LOW);
+#endif
         }
         else if(targetPosition > position)
         {
+#if INVERSE_DIRECTION == 0
             digitalWrite( PIN_ENABLE_0, HIGH);
             digitalWrite( PIN_ENABLE_1, LOW);
+#endif
+#if INVERSE_DIRECTION == 1
+			digitalWrite(PIN_ENABLE_0, LOW);
+			digitalWrite(PIN_ENABLE_1, HIGH);
+#endif
         }
         /*
         Serial.print("targetPosition:"+String(targetPosition)+"\n");
@@ -149,7 +207,7 @@ class AxActuator: public TWI
 
 		
 
-		Serial.print( String(speed) +"\n");
+		//Serial.print( String(speed) +"\n");
 		lastposition = position;
 
     }
@@ -227,8 +285,11 @@ class AxActuator: public TWI
 	/**
 	*
 	*/
-    void turnBreak()
+    void stop()
     {
+		procedure = Procedures::NONE;
+		procedureFunction = ProcedureFunctions::NONE;
+		targetPosition = position;
         turnSpeed(0);
         digitalWrite( PIN_ENABLE_0, LOW);
         digitalWrite( PIN_ENABLE_1, LOW);
@@ -246,34 +307,80 @@ class AxActuator: public TWI
         
     }
 	
+	int echoValue = 0;
+
+	// stores the current speed if speed
+	// is temp set to a different value.
+	int speedBackup;
+
+	void calibrate()
+	{
+		speedBackup = this->speed;
+		this->speed = 125;
+
+		procedure = Procedures::HOMING;
+		procedureFunction = ProcedureFunctions::RELEASE;
+		
+	}
+
 	/**
 	*
 	*/
-    virtual String decodeMessage(byte data[])
+    virtual void decodeMessage(byte data[])
     {
 
-        Serial.print("Received: "+String(this->toInt(data,0,1))+"\n" );
-        
+		//Serial.println("decodeMessage");
+		//Serial.println(this->toInt(data, 0, 1));
+		//Serial.println(this->toInt(data, 1, 3));
+		
+		
+
         switch( this->toInt(data,0,1) ){
-            case 1:
-                //value0 = toInt(data,1,3);
-                
-            break;
-            case 2:
-                
-            break; 
-            case 3:
-                
-            break; 
-            case 4:
-                
-            break; 
+			case WireCommands::ZERO:
+				this->position = 0;
+				this->targetPosition = 0;
+				break;
+			case WireCommands::INC_POSITION:
+				this->moveTo(this->position + this->toInt(data, 1, 3));
+				break; 
+			case WireCommands::DEC_POSITION:
+				Serial.println( String(this->toInt(data, 1, 3)) );
+				this->moveTo(this->position - this->toInt(data, 1, 3));
+				break; 
+			case WireCommands::SET_TOLERANCE:
+				this->tolerance = this->toInt(data, 1, 3);
+				break;
+			case WireCommands::MOVE_TO:
+				this->moveTo(this->toInt(data, 1, 3));
+				break;
+			case WireCommands::IS_BUSY:
+				this->returnValue = (int)this->isBusy();
+				break;
+			case WireCommands::GET_POSITION:
+				this->returnValue = this->position;
+				break;
+			case WireCommands::SET_ECHO:
+				this->echoValue = this->toInt(data, 1, 3);
+				break;
+			case WireCommands::GET_ECHO:
+				this->returnValue = this->echoValue;
+				break;
+			case WireCommands::SET_MAX_SPEED:
+				this->maxSpeed = this->toInt(data, 1, 3);
+				break;
+			case WireCommands::GET_MAX_SPEED:
+				this->returnValue = this->maxSpeed;
+				break;
+			case WireCommands::HOME:
+				this->calibrate();
+				break;
+			case WireCommands::STOP:
+				this->stop();
+				break;
             default:
 
             break; 
         }
-        
-        return "m";
 
     }
     

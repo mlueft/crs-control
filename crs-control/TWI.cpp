@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <Wire.h>
+#include "Wire.h"
 
 class TWI{
 
@@ -70,13 +70,9 @@ class TWI{
       */
     void TWIOnRequest()
     {
-        
-        //Serial.print( String(returnValue) );
+        //Serial.println( "returnValue on request: "+ String(returnValue) );
         byte *d = toBytes( returnValue);
-        Wire.write(d[0]);
-        Wire.write(d[1]);
-        Wire.write(d[2]);
-        
+		Wire.write(d, sizeof(long));
         delete[] d;
     }    
 
@@ -85,19 +81,20 @@ class TWI{
       *
       *
       */
-    String TWIOnData(int qty)
+	void TWIOnData(int qty)
     {
         
         byte data[qty];
         int index = 0;
         while( Wire.available() > 0){
             char c = Wire.read();
+			//Serial.println(c);
             data[index] = c;
             index++;
             delay(2);
         }
 
-        return this->decodeMessage(data);
+        this->decodeMessage(data);
       
     }    
 
@@ -105,9 +102,9 @@ class TWI{
       *
       *
       */
-    virtual String decodeMessage(byte data[])
+    virtual void decodeMessage(byte data[])
     {
-        return "0";
+        
     }
         
 
