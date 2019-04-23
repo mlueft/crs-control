@@ -24,8 +24,9 @@ class TWI{
     }
     
     /**
-      *
-      *
+      * Reads the next [size] bytes beginning at [index] and
+      * returns an integer containing the read bytes. Uses 
+	  * little endian.
       */
     long toInt(byte data[], int index = 0, int size=3)
     {
@@ -40,7 +41,8 @@ class TWI{
     }
     
     /**
-      *
+      *  Reads the next [size] bytes from data and returns an byte array.
+	  *  Uses little endian.
       *
       */    
     byte* toBytes(long data, int size = 3)
@@ -58,14 +60,14 @@ class TWI{
     }
     
     /**
-      *
+      *  Stores the value returned at the next master request call.
       *
       */    
     long returnValue = 0;
     
     public:    
     /**
-      *
+      *  Answers master's request call and sends the return value.
       *
       */
     void TWIOnRequest()
@@ -78,8 +80,8 @@ class TWI{
 
 
     /**
-      *
-      *
+      *  Receives the master send call and calls decodeMessage.
+      *  DecodeMessage should be implemented be a child class.
       */
 	void TWIOnData(int qty)
     {
@@ -99,8 +101,8 @@ class TWI{
     }    
 
     /**
-      *
-      *
+      *  To be implemented by a child class to react on
+      *  to receives message.
       */
     virtual void decodeMessage(byte data[])
     {

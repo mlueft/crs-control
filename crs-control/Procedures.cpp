@@ -1,4 +1,7 @@
 
+/**
+*   State codes for the currently running procedure.
+*/
 class Procedures
 {
 public:
