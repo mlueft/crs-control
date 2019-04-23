@@ -16,4 +16,8 @@ public:
 	const static int GET_MAX_SPEED = 0x0B;  // asks for the max speed value.
 	const static int HOME          = 0x0C;  // starts the homing 
 	const static int STOP          = 0x0D;
+	const static int GET_RAMPE     = 0x0E;
+	const static int SET_RAMPE     = 0x0F;
+	const static int GET_MIN_SPEED = 0x10;
+	const static int SET_MIN_SPEED = 0x11;
 };

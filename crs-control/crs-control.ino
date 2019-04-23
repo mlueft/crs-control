@@ -36,7 +36,8 @@ void setup(void) {
 
     actuator.setMinSpeed(100);
     actuator.setMaxSpeed(255);
-	actuator.tolerance = 100;
+	actuator.setTolerance(100);
+
 
 }
 

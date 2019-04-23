@@ -2,7 +2,7 @@
 /**
 *   Address of the slave on the bus.
 */
-#define TWI_ADDR     8
+#define TWI_ADDR     9
 
 /**
 *   Enable pin for the channel on the H-bridge.

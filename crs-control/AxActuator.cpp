@@ -14,7 +14,7 @@ class AxActuator: public TWI
     int PIN_FEEDBACK_1;
 	int PIN_HOME_SWITCH;
 
-    public:
+    private:
 
 	/**
 	*
@@ -30,7 +30,48 @@ class AxActuator: public TWI
 	*
 	*/
     long startPosition = 0;
-    
+
+	/**
+	*
+	*/
+	int speed = 0;
+
+	/**
+	*
+	*/
+	long lastposition = 0;
+
+	/**
+	*
+	*/
+	int procedure = Procedures::NONE;
+	
+	/**
+	*
+	*/
+	int procedureFunction = ProcedureFunctions::NONE;
+	
+	/**
+	*
+	*/
+	int echoValue = 0;
+
+	/*
+	*  stores the current speed if speed
+	*  is temp set to a different value.
+	*/
+	int speedBackup;
+
+
+
+
+
+
+
+
+
+
+
 	/**
 	*
 	*/
@@ -51,6 +92,10 @@ class AxActuator: public TWI
 	*/
     int maxSpeed            = 255;
     
+
+
+
+	public:
     /**
       *
       *
@@ -75,17 +120,57 @@ class AxActuator: public TWI
 	/**
 	*
 	*/
-    void setMaxSpeed( int value)
-    {
-        maxSpeed = max(0,min(255,value));
-    }
+	void setTolerance(int value)
+	{
+		this->tolerance = value;
+	}
 
 	/**
 	*
 	*/
-    void setMinSpeed( int value)
+	int getTolerance()
+	{
+		return this->tolerance;
+	}
+
+	/**
+	*
+	*/
+	void setRampe(int value)
+	{
+		this->rampe = value;
+	}
+
+	/**
+	*
+	*/
+	int getRampe()
+	{
+		return this->rampe;
+	}
+
+	/**
+	*
+	*/
+	void setMinSpeed(int value)
+	{
+		this->minSpeed = max(0, min(255, value));
+	}
+
+	/**
+	*
+	*/
+	int getMinSpeed()
+	{
+		return this->minSpeed;
+	}
+
+	/**
+	*
+	*/
+    void setMaxSpeed( int value)
     {
-        minSpeed = max(0,min(255,value));
+        maxSpeed = max(0,min(255,value));
     }
 
 	/**
@@ -114,11 +199,6 @@ class AxActuator: public TWI
         startPosition = position;
         targetPosition = value;
     }
-
-	int speed = 0;
-	long lastposition = 0;
-	int procedure = Procedures::NONE;
-	int procedureFunction = ProcedureFunctions::NONE;
 
 	/**
 	*
@@ -307,12 +387,9 @@ class AxActuator: public TWI
         
     }
 	
-	int echoValue = 0;
-
-	// stores the current speed if speed
-	// is temp set to a different value.
-	int speedBackup;
-
+	/**
+	*
+	*/
 	void calibrate()
 	{
 		speedBackup = this->speed;
@@ -329,12 +406,6 @@ class AxActuator: public TWI
     virtual void decodeMessage(byte data[])
     {
 
-		//Serial.println("decodeMessage");
-		//Serial.println(this->toInt(data, 0, 1));
-		//Serial.println(this->toInt(data, 1, 3));
-		
-		
-
         switch( this->toInt(data,0,1) ){
 			case WireCommands::ZERO:
 				this->position = 0;
@@ -344,7 +415,6 @@ class AxActuator: public TWI
 				this->moveTo(this->position + this->toInt(data, 1, 3));
 				break; 
 			case WireCommands::DEC_POSITION:
-				Serial.println( String(this->toInt(data, 1, 3)) );
 				this->moveTo(this->position - this->toInt(data, 1, 3));
 				break; 
 			case WireCommands::SET_TOLERANCE:
@@ -376,6 +446,18 @@ class AxActuator: public TWI
 				break;
 			case WireCommands::STOP:
 				this->stop();
+				break;
+			case WireCommands::SET_RAMPE:
+				this->rampe = this->toInt(data, 1, 3);
+				break;
+			case WireCommands::GET_RAMPE:
+				this->returnValue = this->rampe;
+				break;
+			case WireCommands::SET_MIN_SPEED:
+				this->minSpeed = this->toInt(data, 1, 3);
+				break;
+			case WireCommands::GET_MIN_SPEED:
+				this->returnValue = this->minSpeed;
 				break;
             default:
 
