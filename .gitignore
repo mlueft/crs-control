@@ -3,3 +3,9 @@ Backup
 UpgradeLog.htm
 **/__pychache__
 **/*.pyc
+*.sln
+**/*.vcxproj.filters
+**/*.vcxproj.user
+**/*.vcxproj
+.project
+.pydevproject
