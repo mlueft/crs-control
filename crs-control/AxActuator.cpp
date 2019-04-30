@@ -459,6 +459,9 @@ class AxActuator: public TWI
 			case WireCommands::GET_MIN_SPEED:
 				this->returnValue = this->minSpeed;
 				break;
+			case WireCommands::GET_TOLERANCE:
+				this->returnValue = this->tolerance;
+				break;
             default:
 
             break; 

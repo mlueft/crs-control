@@ -20,4 +20,5 @@ public:
 	const static int SET_RAMPE     = 0x0F;
 	const static int GET_MIN_SPEED = 0x10;
 	const static int SET_MIN_SPEED = 0x11;
+	const static int GET_TOLERANCE = 0x12;  // asks for the tolerance.
 };
