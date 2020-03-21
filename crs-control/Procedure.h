@@ -1,8 +1,9 @@
-
+#ifndef PROCEDURE_H
+#define PROCEDURE_H
 /**
 *   State codes for the currently running procedure.
 */
-class Procedures
+class Procedure
 {
 public:
 
@@ -10,3 +11,5 @@ public:
 	const static int HOMING = 0x02;
 
 };
+
+#endif

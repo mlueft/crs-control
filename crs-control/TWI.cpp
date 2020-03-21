@@ -72,7 +72,6 @@ class TWI{
       */
     void TWIOnRequest()
     {
-        //Serial.println( "returnValue on request: "+ String(returnValue) );
         byte *d = toBytes( returnValue);
 		Wire.write(d, sizeof(long));
         delete[] d;
@@ -90,7 +89,6 @@ class TWI{
         int index = 0;
         while( Wire.available() > 0){
             char c = Wire.read();
-			//Serial.println(c);
             data[index] = c;
             index++;
             delay(2);

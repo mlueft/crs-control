@@ -9,3 +9,4 @@ UpgradeLog.htm
 **/*.vcxproj
 .project
 .pydevproject
+.cproject

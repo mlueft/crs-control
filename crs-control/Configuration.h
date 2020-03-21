@@ -1,3 +1,5 @@
+#ifndef CONFIGURATION_H
+#define CONFIGURATION_H
 
 /**
 *   Address of the slave on the bus.
@@ -23,21 +25,23 @@
 *  Encoder feedback from the H-bridge.
 *  Must be a interrupt pin.
 */
-#define PIN_ENCODER_A 2
+#define PHASE_B     (PIND & 1<<PD2)
 
 /**
 *  Encoder feedback from the H-bridge.
 *  Must be a interrupt pin.
 */
-#define PIN_ENCODER_B 3
+#define PHASE_A     (PIND & 1<<PD3)
 
 /**
 *  Input pin for the Home sensor.
 */
 #define PIN_HOME 4
 
-/*
-*  
-*/
-#define INVERSE_DIRECTION 1
+/**
+ *
+ */
+#define ZERO_OFFSET 1345
 
+
+#endif // CONFIGURATION_H

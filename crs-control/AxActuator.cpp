@@ -1,18 +1,11 @@
 #include "TWI.cpp"
-#include "WireCommands.cpp"
-#include "Procedures.cpp"
-#include "ProcedureFunctions.cpp"
+#include "WireCommand.h"
+#include "Procedure.h"
+#include "Configuration.h"
+#include "ProcedureFunction.h"
 
 class AxActuator: public TWI
 {
-    
-    private:
-    int PIN_ENABLE_0;
-    int PIN_ENABLE_1;
-    int PIN_PWN_SPEED;
-    int PIN_FEEDBACK_0;
-    int PIN_FEEDBACK_1;
-	int PIN_HOME_SWITCH;
 
     private:
 
@@ -34,43 +27,27 @@ class AxActuator: public TWI
 	/**
 	*
 	*/
-	int speed = 0;
+	long lastPosition = 0;
+
+	/**
+	 *
+	 */
+	unsigned long  lastTime = 0;
 
 	/**
 	*
 	*/
-	long lastposition = 0;
-
-	/**
-	*
-	*/
-	int procedure = Procedures::NONE;
+	int procedure = Procedure::NONE;
 	
 	/**
 	*
 	*/
-	int procedureFunction = ProcedureFunctions::NONE;
+	int procedureFunction = ProcedureFunction::NONE;
 	
 	/**
 	*
 	*/
 	int echoValue = 0;
-
-	/*
-	*  stores the current speed if speed
-	*  is temp set to a different value.
-	*/
-	int speedBackup;
-
-
-
-
-
-
-
-
-
-
 
 	/**
 	*
@@ -85,36 +62,26 @@ class AxActuator: public TWI
 	/**
 	*
 	*/
-    int minSpeed            = 60;
-
-	/**
-	*
-	*/
-    int maxSpeed            = 255;
+    int maxSpeed            = 1000;
     
+    /**
+     *
+     */
+    float currentSpeed        = 0;
 
-
+    /**
+     *
+     */
+    int currentPWMSpeed     = 0;
 
 	public:
     /**
       *
       *
       */    
-    AxActuator(
-        int pin0,
-        int pin1,
-        int pinPWN,
-        int fbPin0,
-        int fbPin1,
-		int pinHome
-    )
+    AxActuator()
     {
-        PIN_ENABLE_0 = pin0;
-        PIN_ENABLE_1 = pin1;
-        PIN_PWN_SPEED = pinPWN;
-        PIN_FEEDBACK_0 = fbPin0;
-        PIN_FEEDBACK_1 = fbPin1;
-		PIN_HOME_SWITCH = pinHome;
+
     }
 
 	/**
@@ -152,39 +119,61 @@ class AxActuator: public TWI
 	/**
 	*
 	*/
-	void setMinSpeed(int value)
-	{
-		this->minSpeed = max(0, min(255, value));
-	}
-
-	/**
-	*
-	*/
-	int getMinSpeed()
-	{
-		return this->minSpeed;
-	}
-
-	/**
-	*
-	*/
     void setMaxSpeed( int value)
     {
-        maxSpeed = max(0,min(255,value));
+    	this->maxSpeed = max(0,min(255,value));
     }
 
 	/**
 	*
 	*/
-    bool isBusy()
+    void setPosition(long value)
     {
-        /*
-        Serial.print("---------------------------\n");
-        Serial.print( String( position )+"\n" );
-        Serial.print( String( targetPosition)+"\n" );
-        Serial.print( String( getCurrentSpeed() )+"\n" );
-        Serial.print("---------------------------\n");
-        /**/
+    	position = value;
+    }
+
+	/**
+	*
+	*/
+    long getPosition()
+    {
+    	return position;
+    }
+
+	/**
+	*
+	*/
+    void setCurrentSpeed(long value)
+    {
+    	currentSpeed = value;
+    }
+
+	/**
+	*
+	*/
+    long getCurrentSpeed()
+    {
+    	return currentSpeed;
+    }
+
+
+
+
+
+
+
+	/**
+	*
+	*/
+    bool isBusy( int excludeProcedures = 0 )
+    {
+
+
+    	if (
+    			(procedure&~(excludeProcedures|Procedure::NONE)) > 0
+		)
+    		return true;
+
         if( abs(targetPosition-position) <= tolerance /*&& getCurrentSpeed() < 30*/)
             return false;
         
@@ -206,185 +195,266 @@ class AxActuator: public TWI
     void main()
     {
     
-		if (procedure == Procedures::HOMING)
+    	//
+    	// Determine current movement speed.
+    	//
+    	int deltaTime = millis() - lastTime ;
+        if( deltaTime > 50 )
+        {
+
+        	int deltaPosition = abs(position-lastPosition);
+
+        	currentSpeed = deltaPosition*1000/(float)deltaTime;
+
+            lastTime = millis();
+            lastPosition = position;
+
+        }
+
+        //
+        // executing procedures
+        //
+		if (procedure == Procedure::HOMING)
 		{
 
-			if (procedureFunction == ProcedureFunctions::RELEASE)
+
+			if (procedureFunction == ProcedureFunction::RELEASE)
 			{
-				if (digitalRead(PIN_HOME_SWITCH) == HIGH) {
-					if( !this->isBusy() )
-					{
-						this->moveTo(this->position - int(this->tolerance * 2));
-					}
-				}
-				else
-				{
-					procedureFunction = ProcedureFunctions::DETENTION;
-				}
-			}
-			else if (procedureFunction == ProcedureFunctions::DETENTION)
-			{
-				if (digitalRead(PIN_HOME_SWITCH) == LOW) {
-					if (!this->isBusy())
+
+				// homingswitch is already pressed
+				if (digitalRead(PIN_HOME) == HIGH) {
+
+					// if machine isn't busy
+					// move tool to release home switch
+					if( !this->isBusy(Procedure::HOMING) )
 					{
 						this->moveTo(this->position + int(this->tolerance * 2));
 					}
 				}
 				else
 				{
-					procedure = Procedures::NONE;
-					procedureFunction = ProcedureFunctions::NONE;
+					// if homeing switch isn't pressed
+					// start homeing movement
+					procedureFunction = ProcedureFunction::DETENTION;
+				}
+			}
+			else if (procedureFunction == ProcedureFunction::DETENTION)
+			{
 
-					this->position = 0;
-					this->targetPosition = 0;
-					this->speed = speedBackup;
+				// homeing switch isn't pressed.
+				if (digitalRead(PIN_HOME) == LOW) {
+
+					// if machine isn't busy
+					// start moving towarts homing switch
+					if (!this->isBusy(Procedure::HOMING))
+					{
+						this->moveTo(this->position - int(this->tolerance * 2));
+					}
+				}
+				else
+				{
+					// Homing switch reached
+					// set position to offset and end
+					// procedure
+					procedure = Procedure::NONE;
+					procedureFunction = ProcedureFunction::NONE;
+
+					this->position = ZERO_OFFSET;
+					this->targetPosition = ZERO_OFFSET;
 				}
 			}
 		}
 
 
 
-
+		//
+		// direction control
+		//
+		/**/
         if(targetPosition < position)
         {
-#if INVERSE_DIRECTION == 0
-            digitalWrite( PIN_ENABLE_0, LOW);
-            digitalWrite( PIN_ENABLE_1, HIGH);
-#endif
-#if INVERSE_DIRECTION == 1
-			digitalWrite(PIN_ENABLE_0, HIGH);
-			digitalWrite(PIN_ENABLE_1, LOW);
-#endif
+            digitalWrite( PIN_ENABLE_A, LOW);
+            digitalWrite( PIN_ENABLE_B, HIGH);
         }
         else if(targetPosition > position)
         {
-#if INVERSE_DIRECTION == 0
-            digitalWrite( PIN_ENABLE_0, HIGH);
-            digitalWrite( PIN_ENABLE_1, LOW);
-#endif
-#if INVERSE_DIRECTION == 1
-			digitalWrite(PIN_ENABLE_0, LOW);
-			digitalWrite(PIN_ENABLE_1, HIGH);
-#endif
+            digitalWrite( PIN_ENABLE_A, HIGH);
+            digitalWrite( PIN_ENABLE_B, LOW);
         }
-        /*
-        Serial.print("targetPosition:"+String(targetPosition)+"\n");
-        Serial.print("position:"+String(position)+"\n");
-        /**/
-        if( abs(targetPosition-position) > tolerance )
+		/**/
+
+
+        //
+        // speed control
+        //
+        int deltaPosition = abs(targetPosition-position);
+        if( deltaPosition > tolerance )
         {
-            int speed = getCurrentSpeed();
-            //Serial.print("speed: "+String(speed)+"\n");
-            turnSpeed( speed );
+
+        	// currentSpeed
+        	referenceSpeed = getCurrentReferenceSpeed();
+
+        	deltaSpeed = currentSpeed-referenceSpeed;
+
+        	accelerationHisteresis = getAccelerationHisteresis(deltaPosition);
+
+        	acceleration = 0;
+        	if( deltaSpeed > accelerationHisteresis )
+        	{
+        		// acceleration
+        		acceleration = -2;
+        	}
+        	else if( deltaSpeed < -accelerationHisteresis )
+        	{
+        		// break
+        		acceleration = 2;
+
+        	}else{
+        		// just running
+
+        	}
+
+        	currentPWMSpeed += acceleration;
+        	currentPWMSpeed = turnSpeed( currentPWMSpeed );
+
         }
         else
         {
-            //Serial.print("0*\n");
             turnSpeed(0);
         }
 
-		speed = position - lastposition;
 
-		
+    }
 
-		//Serial.print( String(speed) +"\n");
-		lastposition = position;
+    int referenceSpeed;
+    int deltaSpeed;
+    float accelerationHisteresis;
+    float acceleration;
+
+
+    void trace()
+    {
+
+
+    	Serial.print( position );
+    	Serial.print( ";" );
+
+    	Serial.print( targetPosition );
+    	Serial.print( ";" );
+
+    	Serial.print( currentSpeed );
+    	Serial.print( ";" );
+
+    	Serial.print( deltaSpeed );
+    	Serial.print( ";" );
+
+    	Serial.print( referenceSpeed );
+    	Serial.print( ";" );
+
+    	Serial.print( accelerationHisteresis);
+    	Serial.print( ";" );
+
+    	Serial.print( acceleration );
+    	Serial.print( ";" );
+
+    	Serial.print( currentPWMSpeed );
+    	Serial.print( ";" );
+
+    	Serial.println( "" );
+
+    	/*
+    	Serial.write( "current speed:" );
+    	Serial.println( currentSpeed );
+
+    	Serial.write( "deltaSpeed:" );
+    	Serial.println( deltaSpeed );
+
+    	Serial.write( "deltaSpeed:" );
+    	Serial.println( referenceSpeed );
+
+    	Serial.write( "accelerationHisteresis:" );
+    	Serial.println( accelerationHisteresis);
+
+    	Serial.write( "acceleration:" );
+    	Serial.println( acceleration );
+
+    	Serial.write( "currentPWMSpeed:" );
+    	Serial.println( currentPWMSpeed );
+
+    	Serial.write( "================\n" );
+    	/**/
 
     }
 
 	/**
 	*
 	*/
-    unsigned int getCurrentSpeed()
+    float getAccelerationHisteresis(int deltaPosition)
     {
+
+    	float steigung = 0.01;
+    	return deltaPosition*steigung;
+
+    }
+
+	/**
+	*
+	*/
+    unsigned int getCurrentReferenceSpeed()
+    {
+
         //return 50;
-        
-        // we are breaking
-        if( abs(targetPosition-position) < rampe )
+        int minSpeed = 10;
+
+        // We are in slow down phase at the end of the way
+        int deltaTarget = abs(targetPosition-position);
+        if( deltaTarget < rampe )
         {
-            //Serial.print("a\n");
-            /*
-            Serial.print("----------------------------\n");
-            Serial.print(String(abs(rampe-abs(targetPosition-position)-rampe)/(float)rampe)+"\n");
-            Serial.print(String(abs(rampe))+"\n");
-            Serial.print(String(abs(position))+"\n");
-            Serial.print(String(abs(targetPosition))+"\n");
-            Serial.print("----------------------------\n");
-            //Serial.print( "b\n");
-            /**/
-            return max(minSpeed,maxSpeed*(abs(rampe-abs(targetPosition-position)-rampe)/(float)rampe));
-        }
-        
-        // we are accelerating
-        if( abs(position-startPosition) < rampe )
-        {
-            //Serial.print("b\n");
-            /*
-            Serial.print("----------------------------\n");
-            Serial.print(String(abs(rampe-position-startPosition-rampe))+"\n");
-            Serial.print(String(abs(rampe))+"\n");
-            Serial.print(String(abs(position))+"\n");
-            Serial.print(String(abs(startPosition))+"\n");
-            //Serial.print( "b\n");
-            /**/
-            return max(minSpeed,maxSpeed*abs(rampe-abs(position-startPosition)-rampe)/(float)rampe);
+
+            return max(
+
+				minSpeed,
+
+				maxSpeed
+				*
+				deltaTarget/(float)rampe
+
+			);
+
         }
         
         // we are at full speed
-        //Serial.print( "c\n");
         return maxSpeed;
         
     }
 
-	/**
-	*
-	*/
-    void fb0()
-    {
-        if( digitalRead(PIN_FEEDBACK_0) == digitalRead(PIN_FEEDBACK_1))
-        {
-            position++;
-        }else{
-            position--;
-        }
-    }
 
-	/**
-	*
-	*/
-    void fb1()
-    {
-        if( digitalRead(PIN_FEEDBACK_0) != digitalRead(PIN_FEEDBACK_1))
-        {
-            position++;
-        }else{
-            position--;
-        }
-    }
+
+
 
 	/**
 	*
 	*/
     void stop()
     {
-		procedure = Procedures::NONE;
-		procedureFunction = ProcedureFunctions::NONE;
+		procedure = Procedure::NONE;
+		procedureFunction = ProcedureFunction::NONE;
 		targetPosition = position;
         turnSpeed(0);
-        digitalWrite( PIN_ENABLE_0, LOW);
-        digitalWrite( PIN_ENABLE_1, LOW);
+        digitalWrite( PIN_ENABLE_A, LOW);
+        digitalWrite( PIN_ENABLE_B, LOW);
     }
 
 	/**
 	*
 	*/
-    void turnSpeed(int value = 0)
+    int  turnSpeed(int value = 0)
     {
         
         value = min( value,255 );
         value = max( value,0 );
-        analogWrite( PIN_PWN_SPEED, value );
-        
+        analogWrite( PIN_PWM, value );
+        return value;
     }
 	
 	/**
@@ -392,12 +462,8 @@ class AxActuator: public TWI
 	*/
 	void calibrate()
 	{
-		speedBackup = this->speed;
-		this->speed = 125;
-
-		procedure = Procedures::HOMING;
-		procedureFunction = ProcedureFunctions::RELEASE;
-		
+		procedure = Procedure::HOMING;
+		procedureFunction = ProcedureFunction::RELEASE;
 	}
 
 	/**
@@ -453,11 +519,8 @@ class AxActuator: public TWI
 			case WireCommands::GET_RAMPE:
 				this->returnValue = this->rampe;
 				break;
-			case WireCommands::SET_MIN_SPEED:
-				this->minSpeed = this->toInt(data, 1, 3);
-				break;
-			case WireCommands::GET_MIN_SPEED:
-				this->returnValue = this->minSpeed;
+			case WireCommands::GET_CURRENT_SPEED:
+				this->returnValue = this->currentSpeed;
 				break;
 			case WireCommands::GET_TOLERANCE:
 				this->returnValue = this->tolerance;
@@ -470,3 +533,4 @@ class AxActuator: public TWI
     }
     
 };
+
